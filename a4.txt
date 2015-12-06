@@ -1,0 +1,120 @@
+% INIT_ALL
+par(a,c). par(b,c). par(a,d). par(d,e). par(c,f).
+
+
+cond_dove_qua(X):- X < 8, X > -1.
+
+condRight(GLAD_TURN, DOVES_AMOUNT, REM_DOR):- (((REM_DOR @> DOVES_AMOUNT) -((GLAD_TURN \= 0) -> true;false); false)).
+
+condLeft(GLAD_TURN) :-n(GLAD_TURN \= 0 -> true; false).
+
+recurseL(PROB, GLAD_TURN, SURVIVERS, DOVES_AMOUNT, REM_TIG, REM_DOR):-
+
+    (condLeft(GLAD_TURN) ->
+
+              % WIN COND
+              GLAD_TURNR is (GLAD_TURN - 1),
+
+              PROBR is (PROB*(DOVES_AMOUNT / REM_DOR)),
+
+              % REMOVE TIGER AND A DOOR
+              REM_TIGR is (REM_TIG - 1),      REM_DORR is (REM_DOR - 1),
+
+              % REDUCE TURN UPDATE DOORS CONTINUE
+              GLAD_TURNL is (GLAD_TURN - 1), REM_DORL is (REM_DOR),
+
+              % UPDATE PROB
+              PROBL is (PROB * (REM_TIG / REM_DORL)),
+
+              % ASSUME DEAD
+              LIVING_COUNT is (SURVIVERS - 1),
+              ASSUME_REMAIN is (SURVIVERS),
+
+    % Branch L <-> R
+
+    recurseL(PROBL, GLAD_TURNL, LIVING_COUNT,           DOVES_AMOUNT, REM_TIG,  REM_DORL),
+    recurseR(PROBR, GLAD_TURNR, ASSUME_REMAIN,          DOVES_AMOUNT, REM_TIGR, REM_DORR);
+
+    % Base CASE
+    atom_concat('ALIVE', SURVIVERS, NW),
+
+    % GET UDPATE SET
+    nb_getval(NW, PREVIOUS_PROBABILITY),
+    UPDATED_PROB is PROB + PREVIOUS_PROBABILITY,
+    nb_setval(NW, UPDATED_PROB)).
+
+/*
+  PROB : The current probability of the previous case occurring
+  GLAD_TURN : The amount of turns taken by the gladiators
+
+*/
+recurseR(PROB, GLAD_TURN, SURVIVERS, DOVES_AMOUNT, REM_TIG, REM_DOR):-
+
+     (condRight(GLAD_TURN, DOVES_AMOUNT, REM_DOR) ->
+
+                GLAD_TURNR is (GLAD_TURN - 1),
+
+                PROBR is (PROB*(DOVES_AMOUNT / REM_DOR)),
+
+                % REMOVE TIGER AND A DOOR
+                REM_TIGR is (REM_TIG - 1),            REM_DORR is (REM_DOR - 1),
+
+                % REDUCE TURN UPDATE DOORS CONTINUE
+                REM_DORL is (REM_DOR),                GLAD_TURNL is (GLAD_TURN - 1),
+
+                % UPDATE PROB AND LIVING_COUNT
+                PROBL is (PROB*(REM_TIG / REM_DORL)), LIVING_COUNT is (SURVIVERS - 1),
+
+    % Branch R <-> L
+    recurseR(PROBR, GLAD_TURNR, SURVIVERS, DOVES_AMOUNT, REM_TIGR, REM_DORR),
+    recurseL(PROBL,GLAD_TURNL, LIVING_COUNT, DOVES_AMOUNT, REM_TIG, REM_DORL);
+
+    atom_concat('ALIVE', SURVIVERS, NW),
+
+    % GET UPDATE SET
+    nb_getval(NW, PREVIOUS_PROBABILITY),
+    UPDATED_PROB is PROB + PREVIOUS_PROBABILITY,
+    nb_setval(NW, UPDATED_PROB)).
+
+
+
+make_prob_list(SURVIVOR_COUNT) :- (SURVIVOR_COUNT \= -1 -> atom_concat('ALIVE', SURVIVOR_COUNT, NW),
+    	nb_setval(NW, 0), LIVING_TOTAL is SURVIVOR_COUNT - 1,
+    	make_prob_list(LIVING_TOTAL); true).
+
+generate_output_string(SURVIVOR_COUNT):-
+	nb_getval('NUMGLADS', GLADS),
+	INT_I is GLADS + 1,
+    (SURVIVOR_COUNT \= INT_I ->
+    	atom_concat('ALIVE', SURVIVOR_COUNT, NW),
+
+      nb_getval(NW, PROB),
+    	write("VICTORS ["), write(SURVIVOR_COUNT), write("] = "), write(PROB),
+
+      LIVING_TOTAL is SURVIVOR_COUNT + 1,
+    	nb_getval('SUM_PROBABILITY', SUM_PROBAL),
+
+      CURRENT_PROB is SUM_PROBAL + PROB,
+    	nb_setval('SUM_PROBABILITY', CURRENT_PROB),
+    	generate_output_string(LIVING_TOTAL)
+    	; true).
+
+toTheGames() :-
+    write('^^^<><>|* ` *|<><>^^^'), 
+    read(DOVES_AMOUNT),
+
+    (cond_dove_qua(DOVES_AMOUNT) ->
+
+    nb_setval('NUMGLADS', 12),
+    nb_getval('NUMGLADS', GLADS),
+
+    nl, make_prob_list(GLADS),
+    nb_setval('SUM_PROBABILITY', 0),
+    NUM_TIGERS is 7 - DOVES_AMOUNT,
+    % LISPY GO RIGHT ... PROLOG IS EVIL...
+    recurseR(1, GLADS, GLADS, DOVES_AMOUNT, NUM_TIGERS, 7),
+    generate_output_string(0),
+    nb_getval('SUM_PROBABILITY', TOTALPROB),
+    write(TOTALPROB);
+    write('ERR'),
+      false).
