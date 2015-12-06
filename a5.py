@@ -1,35 +1,35 @@
 import re
-import os
 import zipfile
-
-import re
-import os
-import zipfile
-import smtplib
 import getpass
 from email import encoders
 from email.mime.base import MIMEBase
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-# TODO send email.
 commonRegex = "[_a-zA-Z][_a-zA-z0-9]*"
-
 lispRegex = "[-*+/a-zA-Z_][-a-zA-Z0-9_]*"
+emailRegex = "[^@]+@[^@]+\.[^@]+"
 
 sourceFolder = "csc344"
 
-myMail = "rtorres3@cs.oswego.edu"
-dlEmail = ""
+myMail = "rtorres3@oswego.edu"
 
 subject = "Rafael Torres Programming Language Assignments"
 
 body = """ Hello Professor Lea,
-
-            This is the final assignment email for CSC-344.
-            Thank you for this semester. You said it'd be rough, you weren't kidding."""
+           This is the final assignment email for CSC-344.
+           Thank you for this semester. You said it'd be rough, you weren't kidding."""
 
 passw = getpass.getpass("Enter password asap:")
+
+def getMail():
+    while 1:
+        dlEmail = input("Enter recipient now!")
+        if not re.match(emailRegex, dlEmail):
+            print("Invalid Email")
+        else:
+            break
+    return dlEmail
 
 def getType(collection):
     return str(collection[0][0])
@@ -56,30 +56,40 @@ def createZipFile():
 
 
 # Generates and sends an email to DL's address.
-def generateEmail(zippedFile):
-    mailHeader = MIMEMultipart()
-    mailHeader['From'] = myMail
-    mailHeader['to'] = dlEmail
+def send_email(user, pwd, recipient, subject, body):
+    import smtplib
 
-    mailHeader['subject'] = subject
+    UN = user
+    PW = pwd
+    SUBJECT = subject
+    TEXT = body
 
-    mailBody = MIMEText(body)
+    head = MIMEMultipart()
+    head['From'] = UN
+    head['to'] = recipient
+    head['subject'] = SUBJECT
 
-    zip = MIMEBase("all_assignments", "zip")
-    zipFile = open("csc344/" + zippedFile, "rb")
+    # Prepare actual message
+    messageBody = MIMEText(TEXT)
+    zipFileName = createZipFile()
 
-    zip.set_payload(zipFile.read())
-    encoders.encode_base64(zip)
-    zip.add_header('Context-Disposition', "Attachment; filename= " + zippedFile)
+    attachedZip = MIMEBase("All Sources for all Assignments", "zip")
+    zipFile = open("csc344/" + zipFileName, "rb")
+    attachedZip.set_payload(zipFile.read())
+    encoders.encode_base64(attachedZip)
 
-    mailHeader.attach(mailBody)
-    mailHeader.attach(zip)
+    attachedZip.add_header("Content-Disposition", "Attachment; filename= " + zipFileName)
 
-    mailServer = smtplib.SMTP("smtp.gmail.com:587")
-    mailServer.starttls()
-    mailServer.login(myMail, passw)
-    mailServer.sendmail(myMail, dlEmail, mailHeader.as_string())
-    mailServer.quit()
+    head.attach(messageBody)
+    head.attach(attachedZip)
+
+    server = smtplib.SMTP("smtp.gmail.com", 587)
+    server.ehlo()
+    server.starttls()
+    server.login(UN, PW)
+    server.sendmail(myMail, recipient, head.as_string())
+    server.quit()
+
 
 def getRegex(fileName, pattern):
     extension = fileName.split('.')[1]
@@ -127,37 +137,49 @@ def generatehtml():
     html.write("""<script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.3/js/materialize.min.js"></script>\n""")
     html.write("""<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.3/css/materialize.min.css\n">""")
     html.write("</head>\n")
-    html.write("""<p><a href="a1.cpp">C++ Assignment</a></p>\n""")
-    html.write("""<p><a href="c++_identifiers.txt">C++ Identifiers</a></p>\n""")
-    html.write("""<p><a href="a2.lisp">Lisp Assignment</a></p>\n""")
-    html.write("""<p><a href="lisp_identifiers.txt">Lisp Identifiers</a></p>\n""")
-    html.write("""<p><a href="a3.scala">Scala Assignment</a></p>\n""")
-    html.write("""<p><a href="scala_identifiers.txt">Scala Identifiers</a></p>\n""")
-    html.write("""<p><a href="a4.txt">Prolog Assignment</a></p>\n""")
-    html.write("""<p><a href="prolog_identifiers.txt">Prolog Identifiers</a></p>\n""")
-    html.write("""<p><a href="a5.py">Python Assignment</a></p>\n""")
-    html.write("""<p><a href="python_identifiers.txt">Python Identifiers</a></p>\n""")
+    html.write("""
+      <h1 align="center">Rafael Torres CSC 344 Assignments</h1>
+      <table class="centered highlight">
+        <thead>
+          <tr>
+              <th data-field="id">Language</th>
+              <th data-field="name">Source File</th>
+              <th data-field="price">Symbols File</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <tr>
+            <td>C++</td>
+            <td><p><a href="a1.cpp">C++ Source</a></p></td>
+            <td><p><a href="c++_identifiers.txt">C++ Symbols</a></p></td>
+          </tr>
+          <tr>
+            <td>Lisp</td>
+            <td><p><a href="a2.lisp">Lisp Source</a></p></td>
+            <td><p><a href="lisp_identifiers.txt">Lisp Symbols</a></p></td>
+          </tr>
+          <tr>
+            <td>Scala</td>
+            <td><p><a href="a3.scala">Scala Source</a></p></td>
+            <td><p><a href="scala_identifiers.txt">Scala Symbols</a></p></td>
+          </tr>
+          <tr>
+            <td>Prolog</td>
+            <td><p><a href="a4.txt">Prolog Source</a></p></td>
+            <td><p><a href="prolog_identifiers.txt">Prolog Symbols</a></p></td>
+          </tr>
+          <tr>
+            <td>Python</td>
+            <td><p><a href="a5.py">Python Source</a></p></td>
+            <td><p><a href="python_identifiers.txt">Python Symbols</a></p></td>
+          </tr>
+        </tbody>
+      </table>
+            """)
+
     html.write("</html>")
     html.close()
 
 generatehtml()
-createZipFile()
-# # open file
-# f = open('a2.lis
-# p', 'r')
-# lisp = "^[a-zA-Z]+$"
-# for line in f:
-#     if ';' not in line:
-#         for w in line.split(" "):
-#             found = w.replace("(", "").replace(")", "")
-#             filtered = re.search(lisp, found)
-#             if filtered:
-#                 if str(filtered) not in allFound:
-#                     allFound.add(str(filtered.group()))
-# # print(allFound)
-# f.close()
-
-# C++ Parse
-
-
-
+# send_email("rtorres3@oswego.edu", passw, getMail(), subject, body)
